@@ -1,7 +1,10 @@
 #!/bin/bash
 
 . script/common
-./build.sh
+
+set -e
+# ./build.sh
+set +e
 
 exec_command_file=/tmp/gh-ost-test.bash
 orig_content_output_file=/tmp/gh-ost-test.orig.content.csv
@@ -29,7 +32,7 @@ function at_exit() {
   echo "### Stopping any remaining docker containers..."
   docker ps -f "name=gh-ost" -q --no-trunc | xargs --no-run-if-empty docker kill
 }
-trap at_exit EXIT
+# trap at_exit EXIT
 
 tests_path=$(dirname $0)
 
@@ -256,7 +259,7 @@ function test_all() {
       create_statement=$(${run_replica} test -t -e "show create table _gh_ost_test_gho \G")
       echo "$create_statement" >> $test_logfile
       echo "+ FAIL"
-      kill_docker_container "${container_id}"
+      # kill_docker_container "${container_id}"
       return 1
     else
       echo
@@ -268,8 +271,8 @@ function test_all() {
 
 versions=(
   5.7.21
-  5.6.33
-  5.5.52
+  # 5.6.33
+  # 5.5.52
 )
 
 for version in "${versions[@]}"; do

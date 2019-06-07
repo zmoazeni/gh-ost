@@ -8,6 +8,7 @@ package logic
 import (
 	gosql "database/sql"
 	"fmt"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -710,23 +711,48 @@ func (this *Applier) ExpectUsedLock(sessionId int64) error {
 // ExpectProcess expects a process to show up in `SHOW PROCESSLIST` that has given characteristics
 func (this *Applier) ExpectProcess(sessionId int64, stateHint, infoHint string) error {
 	found := false
+	// query := `
+	// 	select id
+	// 		from information_schema.processlist
+	// 		where
+	// 			id != connection_id()
+	// 			and ? in (0, id)
+	// 			and state like concat('%', ?, '%')
+	// 			and info  like concat('%', ?, '%')
+	// `
+
 	query := `
-		select id
-			from information_schema.processlist
-			where
-				id != connection_id()
-				and ? in (0, id)
-				and state like concat('%', ?, '%')
-				and info  like concat('%', ?, '%')
+		select
+			id,
+			connection_id() as connection_id,
+			state,
+			info
+		from information_schema.processlist
 	`
+
+	var rows []sqlutils.RowMap
 	err := sqlutils.QueryRowsMap(this.db, query, func(m sqlutils.RowMap) error {
-		found = true
+		rows = append(rows, m)
+		if m["id"].String != m["connection_id"].String &&
+			(sessionId == 0 || sessionId == m.GetInt64("id") &&
+				strings.Contains(m["state"].String, stateHint) &&
+				strings.Contains(m["info"].String, infoHint)) {
+			found = true
+		}
 		return nil
-	}, sessionId, stateHint, infoHint)
+	})
 	if err != nil {
 		return err
 	}
 	if !found {
+		fmt.Println("we had a problem finding the connection")
+		for _, row := range rows {
+			fmt.Printf("%v\n", row)
+		}
+
+		fmt.Printf("sessionId: %v\n", sessionId)
+		fmt.Printf("stateHint: %v\n", stateHint)
+		fmt.Printf("infoHint: %v\n", infoHint)
 		return fmt.Errorf("Cannot find process. Hints: %s, %s", stateHint, infoHint)
 	}
 	return nil

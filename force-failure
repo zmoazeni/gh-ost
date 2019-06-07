@@ -1,0 +1,22 @@
+#!/bin/bash
+
+# foo="abc"
+count=1
+
+# while echo $foo | grep -q "ab"; do
+#   ((count=count+1))
+#   echo "in the loop $count"
+#   sleep 1
+#   if [ $count = 2 ]; then
+#     echo "count == 2"
+#     foo="bar"
+#   fi
+# done
+
+set -e
+
+./build.sh
+while ./localtests/test.sh rename-none-comment; do
+  ((count=count+1))
+  echo -e "\n\n----- attempt: $count----\n\n"
+done
